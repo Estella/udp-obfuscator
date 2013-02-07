@@ -60,11 +60,11 @@ void udp_forward::handle_server_receive(const boost::system::error_code& ec,
 		connections.clear();
 		return;
 	}
-	posix_time::ptime now(posix_time::microsec_clock::universal_time());
 	std::shared_ptr<connection> pconn;
 	for (std::shared_ptr<connection>& pconn2 : connections) {
 		if (sender_endpoint == pconn2->sender_endpoint) {
-			pconn2->last_receive_time = now;
+			pconn2->last_receive_time =
+					posix_time::microsec_clock::universal_time();
 			pconn = pconn2;
 			break;
 		}
@@ -72,7 +72,8 @@ void udp_forward::handle_server_receive(const boost::system::error_code& ec,
 	if (not pconn) {
 		pconn = std::shared_ptr<connection>(
 				new connection(sender_endpoint,
-						asio::ip::udp::socket(io_service), now));
+						asio::ip::udp::socket(io_service),
+						posix_time::microsec_clock::universal_time()));
 		boost::system::error_code ec_connect;
 		pconn->client_socket.connect(remote_endpoint, ec_connect);
 		if (ec_connect) {
@@ -111,6 +112,7 @@ void udp_forward::handle_client_receive(std::shared_ptr<connection> pconn,
 		connections.remove(pconn);
 		return;
 	}
+	pconn->last_receive_time = posix_time::microsec_clock::universal_time();
 	obfuscate(bytes_transferred);
 	boost::system::error_code ec_send;
 	server_socket.send_to(asio::buffer(buffer.data(), bytes_transferred),
