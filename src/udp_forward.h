@@ -11,6 +11,10 @@
 #include <iostream>
 #include <list>
 #include <memory>
+
+#if (_MSC_VER == 1600) // Visual Studio 2010, MSVC++ 10.0
+#define BOOST_ASIO_HAS_MOVE
+#endif
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -28,7 +32,7 @@ private:
 public:
 	udp_forward(boost::asio::io_service& io_service,
 			const boost::asio::ip::udp::endpoint& local_endpoint,
-			const boost::asio::ip::udp::endpoint& remote_endpoint,const std::string& key);
+			const boost::asio::ip::udp::endpoint& remote_endpoint,const std::string& key, bool debug = false);
 private:
 	void start_clean_timer();
 	void start_server_receive();
@@ -39,6 +43,7 @@ private:
 			const boost::system::error_code& ec, std::size_t bytes_transferred);
 	void handle_clean_timer(const boost::system::error_code& ec);
 	void obfuscate(size_t buffer_size);
+	void print_packet(size_t buffer_size);
 private:
 	boost::asio::io_service& io_service;
 	boost::asio::ip::udp::endpoint local_endpoint;
@@ -52,6 +57,7 @@ private:
 	std::list<std::shared_ptr<connection> > connections;
 	boost::asio::deadline_timer clean_timer;
 	std::string key;
+	bool debug;
 };
 
 #endif /* UDPFORWARD_H_ */

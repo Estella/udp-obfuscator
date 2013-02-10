@@ -4,7 +4,7 @@ using namespace std;
 using namespace boost;
 
 bool parse_address(const char* s, string& addr, string& port) {
-	if (not s) {
+	if (!s) {
 		return false;
 	}
 	string str(s);
@@ -14,7 +14,7 @@ bool parse_address(const char* s, string& addr, string& port) {
 	}
 	addr = str.substr(0, i);
 	/* ipv6 address */
-	if (not addr.empty() and addr.front() == '[' and addr.back() == ']') {
+	if (!addr.empty() && addr.front() == '[' && addr.back() == ']') {
 		addr = str.substr(1, i - 2);
 	}
 	port = str.substr(i + 1);
@@ -27,26 +27,37 @@ int main(int argc, const char* argv[]) {
 	string forward_addr;
 	string forward_port;
 	string key;
-	if (argc != 5 and argc != 7) {
-		goto arg_error;
-	}
-	for (int i = 1; i < argc; i += 2) {
+	bool debug = false;
+	for (int i = 1; i < argc; i ++) {
 		if (argv[i] == string("-b")) {
-			if (not parse_address(argv[i + 1], bind_addr, bind_port)) {
+			i++;
+			if (i >= argc || !parse_address(argv[i], bind_addr, bind_port)) {
 				goto arg_error;
 			}
 		} else if (argv[i] == string("-f")) {
-			if (not parse_address(argv[i + 1], forward_addr, forward_port)) {
+			i++;
+			if (i >= argc || !parse_address(argv[i], forward_addr, forward_port)) {
 				goto arg_error;
 			}
 		} else if (argv[i] == string("-k")) {
-			key = argv[i + 1];
+			i++;
+			if (i >= argc) {
+				goto arg_error;
+			}
+			key = argv[i];
+		} else if (argv[i] == string("-c")) {
+			key = char(255);
+		} else if (argv[i] == string("-d")) {
+			debug = true;
 		}
+	}
+	if (bind_port.empty() || forward_addr.empty() || forward_port.empty()) {
+		goto arg_error;
 	}
 	goto arg_correct;
 	arg_error: ;
 	cerr
-			<< "usage: udp-obfuscator -b [BIND_ADDRESS]:BIND_PORT -f FORWARD_ADDRESS:FORWARD_PORT [-k KEY]"
+			<< "usage: udp-obfuscator -b [BIND_ADDRESS]:BIND_PORT -f FORWARD_ADDRESS:FORWARD_PORT [-k KEY | -c] [-d]"
 			<< endl;
 	return 1;
 	arg_correct: ;
@@ -57,6 +68,6 @@ int main(int argc, const char* argv[]) {
 			ip::udp::resolver::query::passive);
 	ip::udp::resolver::query forward_query(forward_addr, forward_port);
 	udp_forward uf(io_service, *resolver.resolve(bind_query),
-			*resolver.resolve(forward_query), key);
+			*resolver.resolve(forward_query), key, debug);
 	io_service.run();
 }
