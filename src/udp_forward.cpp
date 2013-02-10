@@ -98,8 +98,8 @@ void udp_forward::handle_server_receive(
 			pconn->client_socket.close(ec);
 			connections.remove(pconn);
 		}
-	} catch (boost::system::error_code &ec) {
-		cerr << __FUNCTION__ << ":" << ec.message() << endl;
+	} catch (boost::system::system_error &error) {
+		cerr << __FUNCTION__ << ":" << error.what() << endl;
 	}
 	start_server_receive();
 }

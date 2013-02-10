@@ -62,13 +62,18 @@ int main(int argc, const char* argv[]) {
 			<< endl;
 	return 1;
 	arg_correct: ;
-	using namespace asio;
-	io_service io_service;
-	ip::udp::resolver resolver(io_service);
-	ip::udp::resolver::query bind_query(bind_addr, bind_port,
-			ip::udp::resolver::query::passive);
-	ip::udp::resolver::query forward_query(forward_addr, forward_port);
-	udp_forward uf(io_service, *resolver.resolve(bind_query),
-			*resolver.resolve(forward_query), key, debug);
-	io_service.run();
+	try {
+		using namespace asio;
+		io_service io_service;
+		ip::udp::resolver resolver(io_service);
+		ip::udp::resolver::query bind_query(bind_addr, bind_port,
+				ip::udp::resolver::query::passive);
+		ip::udp::resolver::query forward_query(forward_addr, forward_port);
+		udp_forward uf(io_service, *resolver.resolve(bind_query),
+				*resolver.resolve(forward_query), key, debug);
+		io_service.run();
+	} catch (boost::system::system_error &error) {
+		cerr << error.what() << endl;
+		return 1;
+	}
 }
