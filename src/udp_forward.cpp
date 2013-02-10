@@ -27,11 +27,6 @@ udp_forward::udp_forward(asio::io_service& io_service,
 				remote_endpoint), server_socket(io_service, local_endpoint), server_receive_buffer(
 				buffer_capacity), expiration(posix_time::minutes(5)), clean_timer(
 				io_service), key(key), debug(debug) {
-	boost::asio::socket_base::send_buffer_size send_buffer_size_option(65536);
-	server_socket.set_option(send_buffer_size_option);
-	boost::asio::socket_base::receive_buffer_size receive_buffer_size_option(
-			65536);
-	server_socket.set_option(receive_buffer_size_option);
 	start_server_receive();
 	start_clean_timer();
 }
@@ -86,20 +81,6 @@ void udp_forward::handle_server_receive(
 							asio::ip::udp::socket(io_service),
 							posix_time::microsec_clock::universal_time()));
 			pconn->client_socket.connect(remote_endpoint);
-			boost::asio::socket_base::send_buffer_size send_buffer_size_option(
-					65536);
-			pconn->client_socket.set_option(send_buffer_size_option, ec);
-			if (ec) {
-				cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
-						<< endl;
-			}
-			boost::asio::socket_base::receive_buffer_size receive_buffer_size_option(
-					65536);
-			pconn->client_socket.set_option(receive_buffer_size_option, ec);
-			if (ec) {
-				cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
-						<< endl;
-			}
 			start_client_receive(pconn);
 			connections.push_back(pconn);
 		}
