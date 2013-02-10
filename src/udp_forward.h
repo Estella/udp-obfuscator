@@ -32,7 +32,8 @@ private:
 public:
 	udp_forward(boost::asio::io_service& io_service,
 			const boost::asio::ip::udp::endpoint& local_endpoint,
-			const boost::asio::ip::udp::endpoint& remote_endpoint,const std::string& key, bool debug = false);
+			const boost::asio::ip::udp::endpoint& remote_endpoint,
+			const std::string& key, bool debug = false);
 private:
 	void start_clean_timer();
 	void start_server_receive();

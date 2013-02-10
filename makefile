@@ -7,7 +7,7 @@ LIBS := -lboost_system -lpthread
 ./%.o: ./src/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: GCC C++ Compiler'
-	g++ -O3 -Wall -c -std=c++0x -o "$@" "$<"
+	g++ -O2 -Wall -c -std=c++0x -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

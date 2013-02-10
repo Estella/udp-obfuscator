@@ -28,7 +28,7 @@ int main(int argc, const char* argv[]) {
 	string forward_port;
 	string key;
 	bool debug = false;
-	for (int i = 1; i < argc; i ++) {
+	for (int i = 1; i < argc; i++) {
 		if (argv[i] == string("-b")) {
 			i++;
 			if (i >= argc || !parse_address(argv[i], bind_addr, bind_port)) {
@@ -36,7 +36,8 @@ int main(int argc, const char* argv[]) {
 			}
 		} else if (argv[i] == string("-f")) {
 			i++;
-			if (i >= argc || !parse_address(argv[i], forward_addr, forward_port)) {
+			if (i >= argc
+					|| !parse_address(argv[i], forward_addr, forward_port)) {
 				goto arg_error;
 			}
 		} else if (argv[i] == string("-k")) {
