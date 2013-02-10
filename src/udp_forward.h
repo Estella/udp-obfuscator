@@ -28,12 +28,15 @@ private:
 		boost::asio::ip::udp::endpoint sender_endpoint;
 		boost::asio::ip::udp::socket client_socket;
 		boost::posix_time::ptime last_receive_time;
+		std::vector<uint8_t> receive_buffer;
 	};
 public:
 	udp_forward(boost::asio::io_service& io_service,
 			const boost::asio::ip::udp::endpoint& local_endpoint,
 			const boost::asio::ip::udp::endpoint& remote_endpoint,
 			const std::string& key, bool debug = false);
+public:
+	static const size_t buffer_capacity = 65536;
 private:
 	void start_clean_timer();
 	void start_server_receive();
@@ -43,16 +46,16 @@ private:
 	void handle_client_receive(std::shared_ptr<connection> pconn,
 			const boost::system::error_code& ec, std::size_t bytes_transferred);
 	void handle_clean_timer(const boost::system::error_code& ec);
-	void obfuscate(size_t buffer_size);
-	void print_packet(size_t buffer_size);
+	void obfuscate(std::vector<uint8_t>& buffer, size_t buffer_size) const;
+	static void print_packet(const std::vector<uint8_t>& buffer,
+			size_t buffer_size);
 private:
 	boost::asio::io_service& io_service;
 	boost::asio::ip::udp::endpoint local_endpoint;
 	boost::asio::ip::udp::endpoint remote_endpoint;
 	boost::asio::ip::udp::socket server_socket;
-	boost::asio::ip::udp::endpoint sender_endpoint;
-	static const size_t buffer_capacity = 65536;
-	std::vector<uint8_t> buffer;
+	boost::asio::ip::udp::endpoint server_receive_sender_endpoint;
+	std::vector<uint8_t> server_receive_buffer;
 	/* udp socket will be closed if no traffic in expiration time. */
 	const boost::posix_time::time_duration expiration;
 	std::list<std::shared_ptr<connection> > connections;

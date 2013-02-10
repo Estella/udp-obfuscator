@@ -15,18 +15,18 @@ udp_forward::connection::connection(
 		asio::ip::udp::socket&& client_socket,
 		const posix_time::ptime& last_receive_time) :
 		sender_endpoint(sender_endpoint), client_socket(
-				std::move(client_socket)), last_receive_time(
-				last_receive_time) {
-		}
+				std::move(client_socket)), last_receive_time(last_receive_time), receive_buffer(
+				udp_forward::buffer_capacity) {
+}
 
 udp_forward::udp_forward(asio::io_service& io_service,
 		const asio::ip::udp::endpoint& local_endpoint,
 		const asio::ip::udp::endpoint& remote_endpoint, const string& key,
 		bool debug) :
 		io_service(io_service), local_endpoint(local_endpoint), remote_endpoint(
-		remote_endpoint), server_socket(io_service, local_endpoint), buffer(
-		buffer_capacity), expiration(posix_time::minutes(5)), clean_timer(
-		io_service), key(key), debug(debug) {
+				remote_endpoint), server_socket(io_service, local_endpoint), server_receive_buffer(
+				buffer_capacity), expiration(posix_time::minutes(5)), clean_timer(
+				io_service), key(key), debug(debug) {
 	boost::asio::socket_base::send_buffer_size send_buffer_size_option(65536);
 	server_socket.set_option(send_buffer_size_option);
 	boost::asio::socket_base::receive_buffer_size receive_buffer_size_option(
@@ -44,14 +44,15 @@ void udp_forward::start_clean_timer() {
 }
 
 void udp_forward::start_server_receive() {
-	server_socket.async_receive_from(asio::buffer(buffer), sender_endpoint,
+	server_socket.async_receive_from(asio::buffer(server_receive_buffer),
+			server_receive_sender_endpoint,
 			boost::bind(&udp_forward::handle_server_receive, this,
 					boost::asio::placeholders::error,
 					boost::asio::placeholders::bytes_transferred));
 }
 
 void udp_forward::start_client_receive(std::shared_ptr<connection> pconn) {
-	pconn->client_socket.async_receive(asio::buffer(buffer),
+	pconn->client_socket.async_receive(asio::buffer(pconn->receive_buffer),
 			boost::bind(&udp_forward::handle_client_receive, this, pconn,
 					boost::asio::placeholders::error,
 					boost::asio::placeholders::bytes_transferred));
@@ -66,12 +67,12 @@ void udp_forward::handle_server_receive(
 		}
 		if (debug) {
 			cout << "server receives ";
-			print_packet(bytes_transferred);
+			print_packet(server_receive_buffer, bytes_transferred);
 		}
 		std::shared_ptr<connection> pconn;
 		for (auto ipconn2 = connections.begin(); ipconn2 != connections.end();
 				++ipconn2) {
-			if (sender_endpoint == (*ipconn2)->sender_endpoint) {
+			if (server_receive_sender_endpoint == (*ipconn2)->sender_endpoint) {
 				(*ipconn2)->last_receive_time =
 						posix_time::microsec_clock::universal_time();
 				pconn = *ipconn2;
@@ -81,7 +82,7 @@ void udp_forward::handle_server_receive(
 		boost::system::error_code ec;
 		if (!pconn) {
 			pconn = std::shared_ptr<connection>(
-					new connection(sender_endpoint,
+					new connection(server_receive_sender_endpoint,
 							asio::ip::udp::socket(io_service),
 							posix_time::microsec_clock::universal_time()));
 			pconn->client_socket.connect(remote_endpoint);
@@ -102,9 +103,9 @@ void udp_forward::handle_server_receive(
 			start_client_receive(pconn);
 			connections.push_back(pconn);
 		}
-		obfuscate(bytes_transferred);
+		obfuscate(server_receive_buffer, bytes_transferred);
 		size_t bytes_sent = pconn->client_socket.send(
-				asio::buffer(buffer.data(), bytes_transferred), 0, ec);
+				asio::buffer(server_receive_buffer.data(), bytes_transferred), 0, ec);
 		if (ec) {
 			cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
 					<< endl;
@@ -135,12 +136,12 @@ void udp_forward::handle_client_receive(std::shared_ptr<connection> pconn,
 	}
 	if (debug) {
 		cout << "client receives ";
-		print_packet(bytes_transferred);
+		print_packet(pconn->receive_buffer, bytes_transferred);
 	}
 	pconn->last_receive_time = posix_time::microsec_clock::universal_time();
-	obfuscate(bytes_transferred);
+	obfuscate(pconn->receive_buffer, bytes_transferred);
 	boost::system::error_code ec;
-	server_socket.send_to(asio::buffer(buffer.data(), bytes_transferred),
+	server_socket.send_to(asio::buffer(pconn->receive_buffer.data(), bytes_transferred),
 			pconn->sender_endpoint, 0, ec);
 	if (ec) {
 		cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message() << endl;
@@ -175,7 +176,8 @@ void udp_forward::handle_clean_timer(
 	start_clean_timer();
 }
 
-void udp_forward::obfuscate(size_t buffer_size) {
+void udp_forward::obfuscate(std::vector<uint8_t>& buffer,
+		size_t buffer_size) const {
 	if (key.empty()) {
 		return;
 	}
@@ -184,7 +186,8 @@ void udp_forward::obfuscate(size_t buffer_size) {
 	}
 }
 
-void udp_forward::print_packet(size_t buffer_size) {
+void udp_forward::print_packet(const std::vector<uint8_t>& buffer,
+		size_t buffer_size) {
 	const char* const t = "0123456789abcdef";
 	cout << buffer_size << '\t';
 	for (size_t i = 0; i < min(buffer_size, size_t(16)); i++) {
