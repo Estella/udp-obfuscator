@@ -57,9 +57,7 @@ void udp_forward::handle_server_receive(
 		const boost::system::error_code& ec_receive,
 		std::size_t bytes_transferred) {
 	try {
-		if (ec_receive) {
-			throw ec_receive;
-		}
+		boost::asio::detail::throw_error(ec_receive, "receive");
 		if (debug) {
 			cout << "server receives ";
 			print_packet(server_receive_buffer, bytes_transferred);
