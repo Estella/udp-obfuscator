@@ -12,7 +12,7 @@ using namespace boost;
 
 udp_forward::connection::connection(
 		const asio::ip::udp::endpoint& sender_endpoint,
-		asio::ip::udp::socket&& client_socket,
+		RVALUE_REF(asio::ip::udp::socket) client_socket,
 		const posix_time::ptime& last_receive_time) :
 		sender_endpoint(sender_endpoint), client_socket(
 				std::move(client_socket)), last_receive_time(last_receive_time), receive_buffer(
@@ -22,11 +22,14 @@ udp_forward::connection::connection(
 udp_forward::udp_forward(asio::io_service& io_service,
 		const asio::ip::udp::endpoint& local_endpoint,
 		const asio::ip::udp::endpoint& remote_endpoint, const string& key,
-		bool debug) :
+		bool debug, int server_send_replay, int client_send_replay) :
 		io_service(io_service), local_endpoint(local_endpoint), remote_endpoint(
 				remote_endpoint), server_socket(io_service, local_endpoint), server_receive_buffer(
 				buffer_capacity), expiration(posix_time::minutes(5)), clean_timer(
-				io_service), key(key), debug(debug) {
+				io_service), key(key), debug(debug), server_send_replay(
+				server_send_replay), client_send_replay(client_send_replay) {
+	assert(server_send_replay >= 1);
+	assert(client_send_replay >= 1);
 	start_server_receive();
 	start_clean_timer();
 }
@@ -83,18 +86,23 @@ void udp_forward::handle_server_receive(
 			connections.push_back(pconn);
 		}
 		obfuscate(server_receive_buffer, bytes_transferred);
-		size_t bytes_sent = pconn->client_socket.send(
-				asio::buffer(server_receive_buffer.data(), bytes_transferred), 0, ec);
-		if (ec) {
-			cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
-					<< endl;
-			pconn->client_socket.close(ec);
-			connections.remove(pconn);
-		} else if (bytes_sent != bytes_transferred) {
-			cerr << __FUNCTION__ << ":" << __LINE__ << ": "
-					<< "Sent size error." << endl;
-			pconn->client_socket.close(ec);
-			connections.remove(pconn);
+		for (int i = 0; i < client_send_replay; i++) {
+			size_t bytes_sent = pconn->client_socket.send(
+					asio::buffer(server_receive_buffer.data(),
+							bytes_transferred), 0, ec);
+			if (ec) {
+				cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
+						<< endl;
+				pconn->client_socket.close(ec);
+				connections.remove(pconn);
+				break;
+			} else if (bytes_sent != bytes_transferred) {
+				cerr << __FUNCTION__ << ":" << __LINE__ << ": "
+						<< "Sent size error." << endl;
+				pconn->client_socket.close(ec);
+				connections.remove(pconn);
+				break;
+			}
 		}
 	} catch (boost::system::system_error &error) {
 		cerr << __FUNCTION__ << ":" << error.what() << endl;
@@ -119,15 +127,19 @@ void udp_forward::handle_client_receive(std::shared_ptr<connection> pconn,
 	}
 	pconn->last_receive_time = posix_time::microsec_clock::universal_time();
 	obfuscate(pconn->receive_buffer, bytes_transferred);
-	boost::system::error_code ec;
-	server_socket.send_to(asio::buffer(pconn->receive_buffer.data(), bytes_transferred),
-			pconn->sender_endpoint, 0, ec);
-	if (ec) {
-		cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message() << endl;
+	for (int i = 0; i < server_send_replay; i++) {
 		boost::system::error_code ec;
-		pconn->client_socket.close(ec);
-		connections.remove(pconn);
-		return;
+		server_socket.send_to(
+				asio::buffer(pconn->receive_buffer.data(), bytes_transferred),
+				pconn->sender_endpoint, 0, ec);
+		if (ec) {
+			cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
+					<< endl;
+			boost::system::error_code ec;
+			pconn->client_socket.close(ec);
+			connections.remove(pconn);
+			return;
+		}
 	}
 	start_client_receive(pconn);
 }

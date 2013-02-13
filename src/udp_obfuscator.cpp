@@ -28,6 +28,8 @@ int main(int argc, const char* argv[]) {
 	string forward_port;
 	string key;
 	bool debug = false;
+	int server_send_replay = 1;
+	int client_send_replay = 1;
 	for (int i = 1; i < argc; i++) {
 		if (argv[i] == string("-b")) {
 			i++;
@@ -50,6 +52,26 @@ int main(int argc, const char* argv[]) {
 			key = char(255);
 		} else if (argv[i] == string("-d")) {
 			debug = true;
+		} else if (argv[i] == string("-B")) {
+			i++;
+			if (i >= argc) {
+				goto arg_error;
+			}
+			server_send_replay = atoi(argv[i]);
+			if (server_send_replay < 1) {
+				goto arg_error;
+			}
+		} else if (argv[i] == string("-F")) {
+			i++;
+			if (i >= argc) {
+				goto arg_error;
+			}
+			client_send_replay = atoi(argv[i]);
+			if (client_send_replay < 1) {
+				goto arg_error;
+			}
+		} else {
+			goto arg_error;
 		}
 	}
 	if (bind_port.empty() || forward_addr.empty() || forward_port.empty()) {
@@ -58,7 +80,7 @@ int main(int argc, const char* argv[]) {
 	goto arg_correct;
 	arg_error: ;
 	cerr
-			<< "usage: udp-obfuscator -b [BIND_ADDRESS]:BIND_PORT -f FORWARD_ADDRESS:FORWARD_PORT [-k KEY | -c] [-d]"
+			<< "usage: udp-obfuscator -b [BIND_ADDRESS]:BIND_PORT -f FORWARD_ADDRESS:FORWARD_PORT [-k KEY | -c] [-d] [-B BIND_END_SEND_REPLAY] [-F FORWARD_END_SEND_REPLAY]"
 			<< endl;
 	return 1;
 	arg_correct: ;
@@ -70,7 +92,8 @@ int main(int argc, const char* argv[]) {
 				ip::udp::resolver::query::passive);
 		ip::udp::resolver::query forward_query(forward_addr, forward_port);
 		udp_forward uf(io_service, *resolver.resolve(bind_query),
-				*resolver.resolve(forward_query), key, debug);
+				*resolver.resolve(forward_query), key, debug,
+				server_send_replay, client_send_replay);
 		io_service.run();
 	} catch (boost::system::system_error &error) {
 		cerr << error.what() << endl;

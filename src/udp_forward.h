@@ -8,13 +8,21 @@
 #ifndef UDPFORWARD_H_
 #define UDPFORWARD_H_
 
+#if defined(_MSC_VER) && (_MSC_VER == 1600) // Visual Studio 2010, MSVC++ 10.0
+#define BOOST_ASIO_HAS_MOVE
+#endif
+
+#ifdef __CDT_PARSER__
+#define __GXX_EXPERIMENTAL_CXX0X__
+#define RVALUE_REF(type) type
+#else
+#define RVALUE_REF(type) type&&
+#endif
+
 #include <iostream>
 #include <list>
 #include <memory>
 
-#if (_MSC_VER == 1600) // Visual Studio 2010, MSVC++ 10.0
-#define BOOST_ASIO_HAS_MOVE
-#endif
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -23,7 +31,7 @@ class udp_forward {
 private:
 	struct connection {
 		connection(const boost::asio::ip::udp::endpoint& sender_endpoint,
-				boost::asio::ip::udp::socket&& client_socket,
+				RVALUE_REF(boost::asio::ip::udp::socket) client_socket,
 				const boost::posix_time::ptime& last_receive_time);
 		boost::asio::ip::udp::endpoint sender_endpoint;
 		boost::asio::ip::udp::socket client_socket;
@@ -34,7 +42,8 @@ public:
 	udp_forward(boost::asio::io_service& io_service,
 			const boost::asio::ip::udp::endpoint& local_endpoint,
 			const boost::asio::ip::udp::endpoint& remote_endpoint,
-			const std::string& key, bool debug = false);
+			const std::string& key, bool debug = false, int server_send_replay =
+					1, int client_send_replay = 1);
 public:
 	static const size_t buffer_capacity = 65536;
 private:
@@ -60,8 +69,10 @@ private:
 	const boost::posix_time::time_duration expiration;
 	std::list<std::shared_ptr<connection> > connections;
 	boost::asio::deadline_timer clean_timer;
-	std::string key;
+	std::string key; //
 	bool debug;
+	int server_send_replay;
+	int client_send_replay;
 };
 
 #endif /* UDPFORWARD_H_ */
