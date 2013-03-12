@@ -14,14 +14,20 @@
 
 #ifdef __CDT_PARSER__
 #define __GXX_EXPERIMENTAL_CXX0X__
-#define RVALUE_REF(type) type
-#else
-#define RVALUE_REF(type) type&&
 #endif
 
+#if defined(__GXX_EXPERIMENTAL_CXX0X__)
+#define BOOST_ASIO_HAS_MOVE
+#endif
+
+#include <cassert>
+#include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <list>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
@@ -31,7 +37,7 @@ class udp_forward {
 private:
 	struct connection {
 		connection(const boost::asio::ip::udp::endpoint& sender_endpoint,
-				RVALUE_REF(boost::asio::ip::udp::socket) client_socket,
+				boost::asio::ip::udp::socket&& client_socket,
 				const boost::posix_time::ptime& last_receive_time);
 		boost::asio::ip::udp::endpoint sender_endpoint;
 		boost::asio::ip::udp::socket client_socket;

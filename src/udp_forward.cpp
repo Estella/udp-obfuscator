@@ -12,7 +12,7 @@ using namespace boost;
 
 udp_forward::connection::connection(
 		const asio::ip::udp::endpoint& sender_endpoint,
-		RVALUE_REF(asio::ip::udp::socket) client_socket,
+		asio::ip::udp::socket&& client_socket,
 		const posix_time::ptime& last_receive_time) :
 		sender_endpoint(sender_endpoint), client_socket(
 				std::move(client_socket)), last_receive_time(last_receive_time), receive_buffer(
