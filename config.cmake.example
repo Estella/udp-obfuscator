@@ -1,0 +1,9 @@
+# set build type below, possible values are: Debug, Release, RelWithDebInfo
+# (meaning "release version with debug information retained") and MinSizeRel
+# (meaning "minimum size release version")
+set(CMAKE_BUILD_TYPE "Release")
+
+# if the header files and compiled libraries of Boost are not installed in
+# the system default search directories of your system, tell CMake the root
+# directory of your uncompressed Boost source code tree here
+set(BOOST_ROOT "")
