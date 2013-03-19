@@ -8,7 +8,7 @@
 #ifndef UDPFORWARD_H_
 #define UDPFORWARD_H_
 
-#if defined(_MSC_VER) && (_MSC_VER == 1600) // Visual Studio 2010, MSVC++ 10.0
+#if defined(_MSC_VER) && (_MSC_VER >= 1600) // Visual Studio 2010, MSVC++ 10.0 or later
 #define BOOST_ASIO_HAS_MOVE
 #endif
 
