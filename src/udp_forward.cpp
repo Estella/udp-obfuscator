@@ -30,6 +30,14 @@ udp_forward::udp_forward(asio::io_service& io_service,
 				server_send_replay), client_send_replay(client_send_replay) {
 	assert(server_send_replay >= 1);
 	assert(client_send_replay >= 1);
+	try {
+		asio::socket_base::receive_buffer_size rbs(socket_buffer_size);
+		server_socket.set_option(rbs);
+		asio::socket_base::send_buffer_size sbs(socket_buffer_size);
+		server_socket.set_option(sbs);
+	} catch (boost::system::system_error &error) {
+                cerr << __FUNCTION__ << ":" << error.what() << endl;
+        }
 	start_server_receive();
 	start_clean_timer();
 }
@@ -82,19 +90,30 @@ void udp_forward::handle_server_receive(
 							asio::ip::udp::socket(io_service),
 							posix_time::microsec_clock::universal_time()));
 			pconn->client_socket.connect(remote_endpoint);
+			asio::socket_base::receive_buffer_size rbs(socket_buffer_size);
+			pconn->client_socket.set_option(rbs);
+			asio::socket_base::send_buffer_size sbs(socket_buffer_size);
+			pconn->client_socket.set_option(sbs);
 			start_client_receive(pconn);
 			connections.push_back(pconn);
+			cout << "new connection from " << server_receive_sender_endpoint << ". " << connections.size() << " connections are active." << endl;
 		}
 		obfuscate(server_receive_buffer, bytes_transferred);
 		for (int i = 0; i < client_send_replay; i++) {
+			posix_time::ptime time_before_send = posix_time::microsec_clock::universal_time();
 			size_t bytes_sent = pconn->client_socket.send(
 					asio::buffer(server_receive_buffer.data(),
 							bytes_transferred), 0, ec);
+			posix_time::ptime time_after_send = posix_time::microsec_clock::universal_time();
+			if (time_after_send - time_before_send > posix_time::milliseconds(10)) {
+				cout << "slow send " << time_after_send - time_before_send << "." << endl;
+			}
 			if (ec) {
 				cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
 						<< endl;
 				pconn->client_socket.close(ec);
 				connections.remove(pconn);
+				cout << "the connection is removed. " << connections.size() << " connections are active." << endl;
 				break;
 			} else if (bytes_sent != bytes_transferred) {
 				cerr << __FUNCTION__ << ":" << __LINE__ << ": "
@@ -129,15 +148,21 @@ void udp_forward::handle_client_receive(std::shared_ptr<connection> pconn,
 	obfuscate(pconn->receive_buffer, bytes_transferred);
 	for (int i = 0; i < server_send_replay; i++) {
 		boost::system::error_code ec;
+		posix_time::ptime time_before_send = posix_time::microsec_clock::universal_time();
 		server_socket.send_to(
 				asio::buffer(pconn->receive_buffer.data(), bytes_transferred),
 				pconn->sender_endpoint, 0, ec);
+		posix_time::ptime time_after_send = posix_time::microsec_clock::universal_time();
+		if (time_after_send - time_before_send > posix_time::milliseconds(10)) {
+			cout << "slow send " << time_after_send - time_before_send << "." << endl;
+		}
 		if (ec) {
 			cerr << __FUNCTION__ << ":" << __LINE__ << ": " << ec.message()
 					<< endl;
 			boost::system::error_code ec;
 			pconn->client_socket.close(ec);
 			connections.remove(pconn);
+			cout << "the connection is removed. " << connections.size() << " connections are active." << endl;
 			return;
 		}
 	}
@@ -163,6 +188,9 @@ void udp_forward::handle_clean_timer(
 	for (auto iipconn = to_be_removed.begin(); iipconn != to_be_removed.end();
 			++iipconn) {
 		connections.erase(*iipconn);
+	}
+	if (not to_be_removed.empty()) {
+		cout << to_be_removed.size() << " connections are removed because of timeout. " << connections.size() << " connections are active." << endl;
 	}
 	start_clean_timer();
 }

@@ -52,6 +52,7 @@ public:
 					1, int client_send_replay = 1);
 public:
 	static const size_t buffer_capacity = 65536;
+	static const size_t socket_buffer_size = 1<<18;
 private:
 	void start_clean_timer();
 	void start_server_receive();
